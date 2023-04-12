@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+  <title>Baihua Yang.4562 &mdash; CSE 5542 - Lab 5 </title>
+
+  <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+
+  <!--  ************** Fragment Shader ************* -->
+  <script id="shader-fs" type="x-shader/x-fragment">
+    
+    precision mediump float;
+    precision mediump int;
+    
+    uniform vec4 ambient_coef;
+    uniform vec4 diffuse_coef;
+    uniform vec4 specular_coef;
+    uniform float mat_shininess; 
+    
+    uniform vec4 light_ambient; 
+    uniform vec4 light_diffuse; 
+    uniform vec4 light_specular;
+
+    uniform vec4 toonColor;
+    
+    varying vec4 eye_pos; 
+    varying vec3 v_normal;
+    varying vec3 light_vector;
+    varying float intensity;
+    
+    uniform int illumMode;
+    uniform int shadingMode;
+    uniform bool isLight;
+    
+    uniform sampler2D myTexture;
+    uniform samplerCube cubeMap; 
+    uniform int use_texture; 
+    varying highp vec2 FtexCoord; 
+    varying vec3 pos;
+    uniform vec3 cameraPos;
+
+    uniform int enableMapKa;
+    uniform int enableMapKd;
+    uniform int enableMapKs;
+    uniform sampler2D textureKa;
+    uniform sampler2D textureKd;
+    uniform sampler2D textureKs;
+    
+    uniform mat4 uV2WMatrix;  // eye to world 
+    varying highp vec3 texCoord; 
+
+    void main(void) {
+
+      vec4 texcolor; 
+      vec3 view_vector, ref; 
+      vec4 env_color = vec4(1,0,0,1);
+
+      texcolor = texture2D(myTexture, FtexCoord); 
+
+      vec3 eye_vector = normalize(-vec3(eye_pos));
+  
+      vec4 ambient = ambient_coef * light_ambient; 
+      if(enableMapKa == 1) ambient = ambient_coef * texture2D(textureKa, FtexCoord);
+      float ndotl = max(dot(v_normal, light_vector), 0.0); 
+  
+      vec4 diffuse = diffuse_coef * light_diffuse * ndotl;
+      if(enableMapKd == 1) diffuse = texture2D(textureKd, FtexCoord);
+  
+      vec3 R = normalize(2.0 * ndotl * v_normal - light_vector);
+      float rdotv = max(dot(R, eye_vector), 0.0);
+  
+      vec4 specular = vec4(0, 0, 0, 1);
+      if(enableMapKs == 1) specular = texture2D(textureKs, FtexCoord);
+      if (ndotl > 0.0)
+        specular = specular_coef * light_specular * pow(rdotv, mat_shininess);
+  
+        
+      if (shadingMode == 0) {
+        if (illumMode == 0) 
+          if (!isLight) {
+            gl_FragColor = ambient + diffuse + specular;
+            
+            if (use_texture == 1) {
+              gl_FragColor = gl_FragColor * texcolor;
+            }
+            else if (use_texture == 2) {
+              gl_FragColor = textureCube(cubeMap, texCoord);
+            }
+            else if (use_texture == 3) {
+              view_vector = normalize(vec3(vec4(0,0,0,1)-eye_pos));
+              ref = normalize(reflect(-view_vector, v_normal));  
+              ref = vec3(uV2WMatrix*vec4(ref,0));   
+              env_color = textureCube(cubeMap, ref);
+              gl_FragColor = env_color;
+            }
+          }
+          else 
+            gl_FragColor = diffuse_coef;
+        else if (illumMode == 1)
+          gl_FragColor = ambient;
+        else if (illumMode == 2)
+          gl_FragColor = diffuse;
+        else if (illumMode == 3)
+          gl_FragColor = specular;
+      }
+      else if (shadingMode == 1) {
+        if (intensity > 0.95) 
+          gl_FragColor = vec4(toonColor[0], toonColor[1], toonColor[2], toonColor[3]);
+        else if (intensity > 0.5) 
+          gl_FragColor = vec4(toonColor[0] * 0.6, toonColor[1] * 0.6, toonColor[2] * 0.6, toonColor[3]);
+        else if (intensity > 0.25) 
+          gl_FragColor = vec4(toonColor[0] * 0.36, toonColor[1] * 0.36, toonColor[2] * 0.36, toonColor[3]);
+        else 
+          gl_FragColor = vec4(toonColor[0] * 0.16, toonColor[1] * 0.16, toonColor[2] * 0.16, toonColor[3]);
+      }
+
+
+    }
+  </script>
+
+  <!--  ************** Vertex Shader ************* -->
+  <script id="shader-vs" type="x-shader/x-vertex">
+
+    precision mediump float;
+
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
+    attribute vec2 aVertexTexCoords; 
+
+    uniform mat4 uMMatrix; 
+    uniform mat4 uVMatrix;
+    uniform mat4 uPMatrix;
+    uniform mat4 uNMatrix; 
+
+    uniform vec4 light_pos;  
+    uniform bool isLight;
+
+    varying vec3 v_normal;
+    varying vec4 eye_pos;
+    varying vec3 light_vector;
+    varying float intensity;
+    varying highp vec2 FtexCoord; 
+    varying vec3 pos;
+    varying highp vec3 texCoord; 
+
+    void main(){
+      eye_pos = uVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
+
+      v_normal = normalize(vec3(uNMatrix * vec4(aVertexNormal, 0.0)));
+
+      if (isLight)
+        light_vector = normalize(vec3(light_pos - eye_pos));
+      else 
+        light_vector = normalize(vec3(light_pos - uMMatrix * vec4(aVertexPosition, 1.0)));
+      
+      intensity = max(dot(light_vector, v_normal), 0.0); 
+
+      gl_Position = uPMatrix * uVMatrix * uMMatrix * vec4(aVertexPosition, 1.0);
+
+      gl_PointSize = 2.0;
+      
+	    FtexCoord = aVertexTexCoords; 
+      texCoord = aVertexPosition;
+
+      pos = vec3(uMMatrix * vec4(aVertexPosition, 1.0));
+    }
+  </script>
+
+  <script type="text/javascript" src="shaders_setup.js"></script>
+  <script type="text/javascript" src="Utils.js"></script>
+  <script type="text/javascript" src="lab.js"></script>
+  <script type="text/javascript" src="objLoaderWithTexture.js"></script>
+</head>
+
+<body onload="webGLStart();">
+    <canvas id="Canvas" style="border:none;" width="750" height="750"></canvas>
+
+    <h4> Draw Mode: </h4>
+    <button onclick="geometry(0)"> Points </button>
+    <button onclick="geometry(1)"> Lines </button>
+    <button onclick="geometry(2)"> Faces </button>
+
+    <h4> Camera: </h4>
+    <button onclick="changeCamera(0)"> Fixed </button>
+    <button onclick="changeCamera(1)"> Movable </button>
+    
+    <h4> Illumination Mode: </h4>
+    <button onclick="illumination(0)"> Default </button>
+    <button onclick="illumination(1)"> Ambient </button>
+    <button onclick="illumination(2)"> Diffuse </button>
+    <button onclick="illumination(3)"> Specular </button>
+
+    <h4> Ambient Color: </h4>
+    <button onclick="coloring(-1)"> None </button>
+    <button onclick="coloring(0)"> Red </button>
+    <button onclick="coloring(1)"> Yellow </button>
+    <button onclick="coloring(2)"> Green </button>
+    <button onclick="coloring(3)"> Blue </button>
+    <button onclick="coloring(4)"> Orange </button>
+
+    <h4> Shading Mode: </h4>
+    <button onclick="shading(0)"> Phong </button>
+    <button onclick="shading(1)"> Toon </button>
+
+</body>
+
+</html>

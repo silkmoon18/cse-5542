@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>Baihua Yang.4562 &mdash; Lab 1 </title>
+
+    <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+    
+    <!--  ************** Fragment Shader ************* -->
+    <script id="shader-fs" type="x-shader/x-fragment">
+
+    precision mediump float;
+    varying vec4 vColor; 
+
+    void main(void) {
+        gl_FragColor = vColor; 
+    }
+
+    </script>
+
+    <!--  ************** Vertex Shader ************* -->
+    <script id="shader-vs" type="x-shader/x-vertex">
+
+    attribute vec3 aVertexPosition;
+    uniform mat4 uMVMatrix;
+
+    uniform float pointSize;
+    
+    attribute vec3 aVertexColor;
+    varying vec4 vColor; 
+
+    void main(void) {
+        gl_Position = uMVMatrix * vec4(aVertexPosition, 1.0);
+        gl_PointSize = pointSize;
+        vColor = vec4(aVertexColor, 1.0); 
+    }
+    </script>
+
+    <script type="text/javascript" src="shaders_setup.js"></script>
+    <script type="text/javascript" src="UtilityClasses.js"></script>
+    <script type="text/javascript" src="lab2.js"></script>
+</head>
+
+<body onload="webGLStart();">
+    <canvas id="Canvas" style="border:none;" width="500" height="500"></canvas>
+</body>
+
+</html>
